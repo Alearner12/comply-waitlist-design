@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import BlurText from "./BlurText";
+import { addToWaitlist } from "../lib/supabase";
 
 const Hero = () => {
   const [email, setEmail] = useState("");
@@ -13,12 +14,23 @@ const Hero = () => {
       return;
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsLoading(false);
-    toast.success("You're on the list! We'll be in touch soon.");
-    setEmail("");
+    try {
+      await addToWaitlist(email);
+      toast.success("You're on the list! We'll be in touch soon.");
+      setEmail("");
+    } catch (error: any) {
+      toast.error(error.message || "Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
