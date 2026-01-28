@@ -11,7 +11,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Waitlist functions
 export async function addToWaitlist(email: string) {
-    const { data, error } = await supabase
+    const { error } = await supabase
         .from('waitlist')
         .insert([{ email }]);
 
@@ -23,5 +23,10 @@ export async function addToWaitlist(email: string) {
         throw error;
     }
 
-    return data;
+    // Trigger notification edge function (fire and forget)
+    supabase.functions.invoke('notify-waitlist', {
+        body: { email }
+    }).catch(err => console.error('Notification failed:', err));
+
+    return true;
 }
