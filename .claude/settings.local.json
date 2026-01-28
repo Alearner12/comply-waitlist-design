@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:razorpay.com)",
+      "WebSearch",
+      "WebFetch(domain:www.tipranks.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:framer.com)",
+      "WebFetch(domain:www.framer.com)",
+      "Bash(git clone:*)",
+      "Bash(npm install)",
+      "WebFetch(domain:earlybird-launch.framer.website)",
+      "Bash(explorer.exe comply-landing.html)",
+      "Bash(cmd.exe /c start \"\" \"C:\\\\users\\\\siddh\\\\Onedrive\\\\desktop\\\\open_source\\\\Micro-SaaS\\\\comply-landing.html\")"
+    ]
+  }
+}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import BlurText from "./BlurText";
 
 const Hero = () => {
   const [email, setEmail] = useState("");
@@ -11,7 +12,7 @@ const Hero = () => {
       toast.error("Please enter your email address");
       return;
     }
-    
+
     setIsLoading(true);
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -22,11 +23,12 @@ const Hero = () => {
 
   return (
     <section className="relative min-h-[85vh] flex items-center justify-center px-4 pt-20 pb-16">
-      {/* Cloud gradients */}
-      <div className="cloud-gradient-tl fixed inset-0 pointer-events-none" />
-      <div className="cloud-gradient-tr fixed inset-0 pointer-events-none" />
-      <div className="cloud-gradient-br fixed inset-0 pointer-events-none" />
-      
+      {/* Cloud gradients - EarlyBird style */}
+      <div className="cloud-gradient-tl fixed inset-0 pointer-events-none z-0" />
+      <div className="cloud-gradient-tr fixed inset-0 pointer-events-none z-0" />
+      <div className="cloud-gradient-bl fixed inset-0 pointer-events-none z-0" />
+      <div className="cloud-gradient-br fixed inset-0 pointer-events-none z-0" />
+
       <div className="max-w-3xl mx-auto text-center relative z-10">
         {/* Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/60 border border-border/50 mb-8 animate-fade-in">
@@ -35,8 +37,8 @@ const Hero = () => {
         </div>
 
         {/* Headline */}
-        <h1 
-          className="serif-headline text-5xl sm:text-6xl md:text-7xl leading-[1.1] mb-6 opacity-0 animate-fade-in-up"
+        <h1
+          className="serif-headline text-[2.875rem] sm:text-[3.5rem] md:text-[4.25rem] leading-[1.1] mb-6 opacity-0 animate-fade-in-up"
           style={{ animationDelay: "0.1s" }}
         >
           Scan Your Website for{" "}
@@ -44,64 +46,49 @@ const Hero = () => {
         </h1>
 
         {/* Subheadline */}
-        <p 
+        <p
           className="text-lg sm:text-xl text-muted-foreground max-w-xl mx-auto mb-10 opacity-0 animate-fade-in-up font-sans"
           style={{ animationDelay: "0.2s" }}
         >
           Comply helps agencies and businesses identify accessibility issues before they become costly legal problems.
         </p>
 
-        {/* Email signup form */}
-        <form 
+        {/* Email signup form - EarlyBird style */}
+        <form
           onSubmit={handleSubmit}
-          className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10 opacity-0 animate-fade-in-up"
+          className="opacity-0 animate-fade-in-up w-full max-w-md mx-auto mb-10"
           style={{ animationDelay: "0.3s" }}
         >
-          <div className="relative w-full sm:w-auto">
+          <div className="relative flex items-center bg-white rounded-full border border-border/60 shadow-soft p-2">
             <input
               type="email"
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="input-pill w-full sm:w-80 text-base shadow-soft"
+              className="flex-1 bg-transparent px-5 py-3 text-base font-sans outline-none placeholder:text-muted-foreground/60"
             />
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="bg-[#1C1C1C] text-white font-sans font-medium px-6 py-3 rounded-full hover:bg-[#2a2a2a] transition-colors disabled:opacity-70 whitespace-nowrap"
+            >
+              {isLoading ? "Joining..." : "Join Waitlist"}
+            </button>
           </div>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="btn-pill btn-primary w-full sm:w-auto whitespace-nowrap disabled:opacity-70"
-          >
-            {isLoading ? "Joining..." : "Join Waitlist"}
-          </button>
         </form>
 
-        {/* Social proof */}
-        <div 
-          className="flex items-center justify-center gap-3 opacity-0 animate-fade-in-up"
+        {/* Early access text with blur animation */}
+        <div
+          className="w-full max-w-md mx-auto"
           style={{ animationDelay: "0.4s" }}
         >
-          <div className="flex -space-x-3">
-            {[
-              "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face",
-              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
-              "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face",
-              "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face",
-            ].map((src, i) => (
-              <div
-                key={i}
-                className="w-10 h-10 rounded-full border-2 border-background overflow-hidden"
-              >
-                <img
-                  src={src}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            ))}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Join <span className="font-semibold text-foreground">500+</span> agencies & businesses
-          </p>
+          <BlurText
+            text="Be among the first to get early access"
+            className="text-base text-[#7d6b9e] font-sans font-medium"
+            delay={100}
+            animateBy="words"
+            direction="bottom"
+          />
         </div>
       </div>
     </section>

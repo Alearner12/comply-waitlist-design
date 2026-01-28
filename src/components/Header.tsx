@@ -4,17 +4,25 @@ const Header = () => {
       <div className="max-w-5xl mx-auto">
         <nav className="flex items-center justify-between px-6 py-3 rounded-full bg-background/80 backdrop-blur-md border border-border/50 shadow-soft">
           <div className="flex items-center gap-2">
-            <span className="serif-headline text-xl font-semibold">Comply</span>
+            {/* EarlyBird-style logo icon */}
+            <img
+              src="/earlybird-logo.svg"
+              alt="Comply Logo"
+              className="w-8 h-8"
+            />
+            <span className="font-serif text-xl tracking-tight">
+              <span className="font-medium">Com</span><span className="italic font-light">ply</span>
+            </span>
           </div>
-          
+
           <div className="hidden sm:flex items-center gap-6 text-sm text-muted-foreground">
             <a href="#features" className="hover:text-foreground transition-colors">Features</a>
             <a href="#about" className="hover:text-foreground transition-colors">About</a>
             <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
           </div>
-          
+
           <button className="btn-pill btn-primary text-sm py-2">
-            Join Waitlist
+            Request Demo
           </button>
         </nav>
       </div>

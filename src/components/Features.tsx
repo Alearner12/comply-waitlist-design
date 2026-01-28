@@ -1,42 +1,53 @@
 import { Search, Shield, Zap } from "lucide-react";
+import SpotlightCard from "./SpotlightCard";
 
 const features = [
   {
     icon: Search,
     title: "Deep Scanning",
-    description: "Comprehensive analysis of every page, element, and interaction on your website for WCAG compliance.",
+    description: "Comprehensive analysis of every page for WCAG compliance",
   },
   {
     icon: Shield,
     title: "Legal Protection",
-    description: "Stay ahead of ADA lawsuits with proactive compliance monitoring and detailed remediation reports.",
+    description: "Stay ahead of ADA lawsuits with proactive monitoring",
   },
   {
     icon: Zap,
     title: "Instant Results",
-    description: "Get actionable insights within minutes, not days. Prioritized issues with clear fix instructions.",
+    description: "Get actionable insights within minutes, not days",
   },
 ];
 
 const Features = () => {
   return (
-    <section className="py-20 px-4">
-      <div className="max-w-5xl mx-auto">
+    <section id="features" className="py-20 px-4">
+      <div className="max-w-4xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {features.map((feature, index) => (
-            <div
+            <SpotlightCard
               key={feature.title}
-              className="card-elevated p-8 opacity-0 animate-fade-in-up group hover:shadow-soft transition-shadow duration-300"
-              style={{ animationDelay: `${0.1 * (index + 1)}s` }}
+              className="opacity-0 animate-fade-in-up text-center"
+              spotlightColor="rgba(212, 196, 168, 0.4)"
             >
-              <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center mb-5 group-hover:bg-primary/5 transition-colors duration-300">
-                <feature.icon className="w-6 h-6 text-foreground" strokeWidth={1.5} />
+              <div
+                className="relative"
+                style={{ animationDelay: `${0.1 * (index + 1)}s` }}
+              >
+                {/* Icon badge */}
+                <div className="w-12 h-12 bg-[#1C1C1C] rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg">
+                  <feature.icon className="w-5 h-5 text-white" strokeWidth={1.5} />
+                </div>
+
+                {/* Content */}
+                <h3 className="font-serif text-lg font-medium mb-2 tracking-tight">
+                  {feature.title}
+                </h3>
+                <p className="text-sm text-muted-foreground font-sans leading-relaxed">
+                  {feature.description}
+                </p>
               </div>
-              <h3 className="serif-headline text-2xl mb-3">{feature.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">
-                {feature.description}
-              </p>
-            </div>
+            </SpotlightCard>
           ))}
         </div>
       </div>
