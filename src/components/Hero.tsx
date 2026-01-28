@@ -1,14 +1,23 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { ChevronDown } from "lucide-react";
+
+const platforms = ["Shopify", "WordPress", "SaaS", "Other"];
 
 const Hero = () => {
   const [email, setEmail] = useState("");
+  const [platform, setPlatform] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
       toast.error("Please enter your email address");
+      return;
+    }
+    if (!platform) {
+      toast.error("Please select your platform");
       return;
     }
     
@@ -18,6 +27,7 @@ const Hero = () => {
     setIsLoading(false);
     toast.success("You're on the list! We'll be in touch soon.");
     setEmail("");
+    setPlatform("");
   };
 
   return (
@@ -54,53 +64,81 @@ const Hero = () => {
         {/* Email signup form */}
         <form 
           onSubmit={handleSubmit}
-          className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10 opacity-0 animate-fade-in-up"
+          className="flex flex-col items-center justify-center gap-3 mb-4 opacity-0 animate-fade-in-up"
           style={{ animationDelay: "0.3s" }}
         >
-          <div className="relative w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full">
             <input
               type="email"
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="input-pill w-full sm:w-80 text-base shadow-soft"
+              className="input-pill w-full sm:w-64 text-base shadow-soft"
             />
+            
+            {/* Platform Dropdown */}
+            <div className="relative w-full sm:w-44">
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="input-pill w-full text-base shadow-soft flex items-center justify-between text-left"
+              >
+                <span className={platform ? "text-foreground" : "text-muted-foreground"}>
+                  {platform || "Platform"}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {isDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-xl shadow-card z-50 overflow-hidden">
+                  {platforms.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => {
+                        setPlatform(p);
+                        setIsDropdownOpen(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm hover:bg-secondary transition-colors first:rounded-t-xl last:rounded-b-xl"
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="btn-pill btn-primary w-full sm:w-auto whitespace-nowrap disabled:opacity-70"
+            >
+              {isLoading ? "Joining..." : "Join Waitlist"}
+            </button>
           </div>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="btn-pill btn-primary w-full sm:w-auto whitespace-nowrap disabled:opacity-70"
-          >
-            {isLoading ? "Joining..." : "Join Waitlist"}
-          </button>
         </form>
+
+        {/* Scare tactic link */}
+        <p 
+          className="text-sm text-muted-foreground mb-8 opacity-0 animate-fade-in-up"
+          style={{ animationDelay: "0.35s" }}
+        >
+          <a 
+            href="/why-businesses-are-sued" 
+            className="underline underline-offset-2 hover:text-foreground transition-colors"
+          >
+            See why businesses are being sued for "Invisible Errors"
+          </a>
+        </p>
 
         {/* Social proof */}
         <div 
-          className="flex items-center justify-center gap-3 opacity-0 animate-fade-in-up"
+          className="flex flex-col items-center justify-center gap-2 opacity-0 animate-fade-in-up"
           style={{ animationDelay: "0.4s" }}
         >
-          <div className="flex -space-x-3">
-            {[
-              "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face",
-              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
-              "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face",
-              "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face",
-            ].map((src, i) => (
-              <div
-                key={i}
-                className="w-10 h-10 rounded-full border-2 border-background overflow-hidden"
-              >
-                <img
-                  src={src}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            ))}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Join <span className="font-semibold text-foreground">500+</span> agencies & businesses
+          <p className="text-sm text-muted-foreground max-w-md">
+            <span className="font-semibold text-foreground">Be the first to secure your site</span>{" "}
+            before the April 2026 Government surge.
           </p>
         </div>
       </div>
