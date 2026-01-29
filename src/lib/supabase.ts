@@ -10,10 +10,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Waitlist functions
-export async function addToWaitlist(email: string) {
+// Waitlist functions
+export async function addToWaitlist(email: string, websiteUrl?: string) {
     const { error } = await supabase
         .from('waitlist')
-        .insert([{ email }]);
+        .insert([{
+            email,
+            website_url: websiteUrl
+        }]);
 
     if (error) {
         if (error.code === '23505') {
@@ -25,7 +29,7 @@ export async function addToWaitlist(email: string) {
 
     // Trigger notification edge function (fire and forget)
     supabase.functions.invoke('notify-waitlist', {
-        body: { email }
+        body: { email, websiteUrl }
     }).catch(err => console.error('Notification failed:', err));
 
     return true;

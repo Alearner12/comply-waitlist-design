@@ -1,4 +1,10 @@
+import { toast } from "sonner";
+
 const Header = () => {
+  const handleRequestDemo = () => {
+    toast.info("Coming Soon!");
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 px-4 py-4">
       <div className="max-w-5xl mx-auto">
@@ -21,7 +27,10 @@ const Header = () => {
             <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
           </div>
 
-          <button className="btn-pill btn-primary text-sm py-2">
+          <button
+            onClick={handleRequestDemo}
+            className="btn-pill btn-primary text-sm py-2"
+          >
             Request Demo
           </button>
         </nav>
