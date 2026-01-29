@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, Minus } from "lucide-react";
+import GradientText from "./GradientText";
 
 const faqs = [
   {
@@ -74,7 +75,14 @@ const FAQ = () => {
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-14">
           <h2 className="serif-headline text-4xl sm:text-5xl mb-4">
-            Frequently Asked <span className="italic-accent">Questions</span>
+            Frequently Asked{" "}
+            <GradientText
+              colors={["#1C1C1C", "#7d6b9e", "#d4c4a8", "#1C1C1C"]}
+              animationSpeed={5}
+              className="italic-accent"
+            >
+              Questions
+            </GradientText>
           </h2>
           <p className="text-muted-foreground text-lg">
             Everything you need to know about Comply

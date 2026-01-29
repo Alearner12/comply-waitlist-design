@@ -1,4 +1,6 @@
 import { toast } from "sonner";
+import Magnet from "./Magnet";
+import StarBorder from "./StarBorder";
 
 const Header = () => {
   const handleRequestDemo = () => {
@@ -27,12 +29,17 @@ const Header = () => {
             <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
           </div>
 
-          <button
-            onClick={handleRequestDemo}
-            className="btn-pill btn-primary text-sm py-2"
-          >
-            Request Demo
-          </button>
+          <Magnet padding={50} magnetStrength={3}>
+            <StarBorder
+              as="button"
+              onClick={handleRequestDemo}
+              className="text-sm font-medium"
+              color="rgba(212, 196, 168, 0.9)"
+              speed="4s"
+            >
+              Request Demo
+            </StarBorder>
+          </Magnet>
         </nav>
       </div>
     </header>

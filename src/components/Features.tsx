@@ -1,5 +1,6 @@
 import { Search, Shield, Zap } from "lucide-react";
 import SpotlightCard from "./SpotlightCard";
+import DecryptedText from "./DecryptedText";
 
 const features = [
   {
@@ -41,7 +42,16 @@ const Features = () => {
 
                 {/* Content */}
                 <h3 className="font-serif text-lg font-medium mb-2 tracking-tight">
-                  {feature.title}
+                  <DecryptedText
+                    text={feature.title}
+                    animateOn="view"
+                    sequential={true}
+                    speed={40}
+                    maxIterations={15}
+                    revealDirection="center"
+                    className="text-foreground"
+                    encryptedClassName="text-muted-foreground/50"
+                  />
                 </h3>
                 <p className="text-sm text-muted-foreground font-sans leading-relaxed">
                   {feature.description}
