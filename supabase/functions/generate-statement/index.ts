@@ -1,0 +1,216 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+// CORS headers
+const allowedOrigins = [
+    "https://getcomply.tech",
+    "https://certifyada.vercel.app",
+    "http://localhost:8080",
+    "http://localhost:8081",
+];
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+    return {
+        "Access-Control-Allow-Origin": origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0],
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+    };
+}
+
+interface StatementInput {
+    sessionId: string;
+    practiceName: string;
+    contactEmail: string;
+    contactPhone?: string;
+    additionalNotes?: string;
+}
+
+interface Finding {
+    id: string;
+    check: string;
+    severity: "critical" | "high" | "medium" | "low";
+    wcagCriterion?: string;
+    wcagName?: string;
+    wcagLevel?: "A" | "AA" | "AAA";
+}
+
+interface Summary {
+    total: number;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    accessibilityScore?: number;
+}
+
+function generateStatement(
+    practiceName: string,
+    websiteUrl: string,
+    contactEmail: string,
+    contactPhone: string | undefined,
+    findings: Finding[],
+    summary: Summary,
+    additionalNotes: string | undefined,
+): string {
+    const today = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+    });
+
+    const score = summary.accessibilityScore || 0;
+
+    // Determine conformance level description
+    let conformanceStatus: string;
+    if (score >= 95 && summary.critical === 0 && summary.high === 0) {
+        conformanceStatus = "We believe this website substantially conforms to WCAG 2.1 Level AA.";
+    } else if (score >= 70 && summary.critical === 0) {
+        conformanceStatus = "This website partially conforms to WCAG 2.1 Level AA. We are actively working to address remaining issues.";
+    } else {
+        conformanceStatus = "We are aware that this website does not yet fully conform to WCAG 2.1 Level AA, and we are actively working toward compliance.";
+    }
+
+    // List known issues if any
+    const knownIssuesSection = findings.length > 0
+        ? `
+## Known Issues
+
+We are aware of the following accessibility issues and are working to resolve them:
+
+${findings
+    .filter(f => f.severity === "critical" || f.severity === "high")
+    .slice(0, 10)
+    .map(f => `- **${f.check}**${f.wcagCriterion ? ` (WCAG ${f.wcagCriterion} ${f.wcagLevel})` : ""}`).join("\n")}
+
+${findings.filter(f => f.severity === "critical" || f.severity === "high").length > 10
+    ? `\n*And ${findings.filter(f => f.severity === "critical" || f.severity === "high").length - 10} additional issues being addressed.*`
+    : ""}
+`
+        : "";
+
+    return `# Accessibility Statement
+
+**${practiceName}**
+**Website:** ${websiteUrl}
+**Last Updated:** ${today}
+
+## Our Commitment
+
+${practiceName} is committed to ensuring digital accessibility for people with disabilities. We are continually improving the user experience for everyone and applying the relevant accessibility standards.
+
+## Conformance Status
+
+${conformanceStatus}
+
+We aim to comply with the Web Content Accessibility Guidelines (WCAG) 2.1 Level AA, as required by the U.S. Department of Health and Human Services (HHS) Section 504 rule for healthcare providers receiving federal financial assistance.
+${knownIssuesSection}
+## Measures Taken
+
+We have taken the following steps to ensure accessibility:
+
+- Conducted an automated accessibility assessment of our website
+- Identified areas for improvement based on WCAG 2.1 Level AA criteria
+- Are implementing remediation measures for identified issues
+- Committed to ongoing monitoring of our website's accessibility
+
+## Feedback
+
+We welcome your feedback on the accessibility of our website. If you encounter accessibility barriers, please contact us:
+
+- **Email:** ${contactEmail}
+${contactPhone ? `- **Phone:** ${contactPhone}` : ""}
+
+We aim to respond to accessibility feedback within 2 business days.
+
+## Compatibility
+
+This website is designed to be compatible with:
+
+- Current versions of major web browsers (Chrome, Firefox, Safari, Edge)
+- Screen readers (NVDA, JAWS, VoiceOver)
+- Keyboard-only navigation
+${additionalNotes ? `\n## Additional Information\n\n${additionalNotes}` : ""}
+## Assessment Method
+
+This accessibility statement was generated based on an automated assessment conducted on ${today} using Google Lighthouse accessibility audits. We acknowledge that automated testing identifies approximately 30-40% of accessibility issues, and we are committed to supplementing this with manual testing and user feedback.
+
+---
+
+*This accessibility statement was generated by [Comply](https://getcomply.tech) - Healthcare Accessibility Compliance Platform.*
+`;
+}
+
+serve(async (req) => {
+    const origin = req.headers.get("origin");
+    const headers = getCorsHeaders(origin);
+
+    if (req.method === "OPTIONS") {
+        return new Response("ok", { headers });
+    }
+
+    if (req.method !== "POST") {
+        return new Response(JSON.stringify({ error: "Method not allowed" }), {
+            status: 405,
+            headers: { ...headers, "Content-Type": "application/json" },
+        });
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    try {
+        const body: StatementInput = await req.json();
+        const { sessionId, practiceName, contactEmail, contactPhone, additionalNotes } = body;
+
+        if (!sessionId || !practiceName || !contactEmail) {
+            return new Response(
+                JSON.stringify({ success: false, error: "sessionId, practiceName, and contactEmail are required" }),
+                { status: 400, headers: { ...headers, "Content-Type": "application/json" } }
+            );
+        }
+
+        // Fetch scan results
+        const { data: scanData, error: fetchError } = await supabase
+            .from("scan_results")
+            .select("website_url, findings, summary")
+            .eq("session_id", sessionId)
+            .single();
+
+        if (fetchError || !scanData) {
+            return new Response(
+                JSON.stringify({ success: false, error: "Scan not found. Please run a scan first." }),
+                { status: 404, headers: { ...headers, "Content-Type": "application/json" } }
+            );
+        }
+
+        const statement = generateStatement(
+            practiceName,
+            scanData.website_url,
+            contactEmail,
+            contactPhone,
+            scanData.findings as Finding[],
+            scanData.summary as Summary,
+            additionalNotes,
+        );
+
+        return new Response(
+            JSON.stringify({
+                success: true,
+                statement,
+                websiteUrl: scanData.website_url,
+            }),
+            { headers: { ...headers, "Content-Type": "application/json" } }
+        );
+    } catch (error) {
+        console.error("Statement generation error:", error);
+        return new Response(
+            JSON.stringify({
+                success: false,
+                error: error instanceof Error ? error.message : "Internal server error",
+            }),
+            { status: 500, headers: { ...headers, "Content-Type": "application/json" } }
+        );
+    }
+});

@@ -14,7 +14,29 @@ export interface Finding {
     wcagPrinciple?: string;
     pageUrl?: string;
     remediation?: string;
+    impact?: string;
     elements?: string[];
+    managerGuidance?: string;
+    developerGuidance?: string;
+}
+
+export interface PdfCheckResult {
+    url: string;
+    filename: string;
+    isAccessible: boolean;
+    hasLangTag: boolean;
+    hasMarkInfo: boolean;
+    hasTitle: boolean;
+    error?: string;
+}
+
+export interface VendorWarning {
+    vendor: string;
+    category: string;
+    detectedVia: string;
+    warning: string;
+    action: string;
+    vpatTemplateEmail: string;
 }
 
 export interface Summary {
@@ -45,6 +67,8 @@ export interface ScanResult {
     };
     pagesScanned?: number;
     pageResults?: PageResult[];
+    pdfResults?: PdfCheckResult[];
+    vendorWarnings?: VendorWarning[];
     error?: string;
     cached?: boolean;
 }
@@ -56,6 +80,8 @@ export interface UnlockResult {
     websiteUrl?: string;
     reportSent?: boolean;
     pageResults?: PageResult[];
+    pdfResults?: PdfCheckResult[];
+    vendorWarnings?: VendorWarning[];
     error?: string;
 }
 
@@ -78,11 +104,11 @@ export function resetSession(): string {
 }
 
 // Start a website scan
-export async function startScan(websiteUrl: string): Promise<ScanResult> {
+export async function startScan(websiteUrl: string, userId?: string): Promise<ScanResult> {
     const sessionId = resetSession(); // New session for each scan
 
     const { data, error } = await supabase.functions.invoke('scan-website', {
-        body: { websiteUrl, sessionId },
+        body: { websiteUrl, sessionId, userId },
     });
 
     if (error) {
@@ -184,4 +210,29 @@ export function getScoreRingColor(score: number): string {
     if (score >= 70) return 'border-yellow-500';
     if (score >= 50) return 'border-orange-500';
     return 'border-red-500';
+}
+
+// Generate accessibility statement
+export async function generateAccessibilityStatement(
+    practiceName: string,
+    contactEmail: string,
+    contactPhone?: string,
+    additionalNotes?: string,
+): Promise<{ success: boolean; statement?: string; error?: string }> {
+    const sessionId = localStorage.getItem(SESSION_KEY);
+
+    if (!sessionId) {
+        return { success: false, error: 'No scan found. Please run a scan first.' };
+    }
+
+    const { data, error } = await supabase.functions.invoke('generate-statement', {
+        body: { sessionId, practiceName, contactEmail, contactPhone, additionalNotes },
+    });
+
+    if (error) {
+        console.error('Statement generation error:', error);
+        return { success: false, error: error.message || 'Failed to generate statement' };
+    }
+
+    return data as { success: boolean; statement?: string; error?: string };
 }

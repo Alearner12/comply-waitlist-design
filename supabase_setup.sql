@@ -87,3 +87,126 @@ CREATE POLICY "scan_results_service_role" ON public.scan_results
 GRANT SELECT, INSERT, UPDATE ON public.scan_results TO anon;
 
 COMMENT ON TABLE public.scan_results IS 'Stores website accessibility scan results for the scanner funnel.';
+
+-- ============================================
+-- Tier 2: User Accounts + Dashboard
+-- ============================================
+
+-- Add user_id and extended fields to scan_results
+ALTER TABLE public.scan_results ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id);
+ALTER TABLE public.scan_results ADD COLUMN IF NOT EXISTS pdf_results JSONB;
+ALTER TABLE public.scan_results ADD COLUMN IF NOT EXISTS vendor_warnings JSONB;
+ALTER TABLE public.scan_results ADD COLUMN IF NOT EXISTS page_results JSONB;
+ALTER TABLE public.scan_results ADD COLUMN IF NOT EXISTS pages_scanned INTEGER;
+ALTER TABLE public.scan_results ADD COLUMN IF NOT EXISTS scanner_version TEXT;
+ALTER TABLE public.scan_results ADD COLUMN IF NOT EXISTS accessibility_score INTEGER;
+
+-- Index for user queries
+CREATE INDEX IF NOT EXISTS idx_scan_results_user_id ON public.scan_results(user_id, created_at DESC);
+
+-- Update RLS: authenticated users can see their own scans
+CREATE POLICY "scan_results_user_select" ON public.scan_results
+    FOR SELECT TO authenticated
+    USING (user_id = auth.uid() OR user_id IS NULL);
+
+CREATE POLICY "scan_results_user_update" ON public.scan_results
+    FOR UPDATE TO authenticated
+    USING (user_id = auth.uid());
+
+-- ============================================
+-- Compliance Log: Track issue lifecycle
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS public.compliance_log (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    scan_result_id UUID REFERENCES public.scan_results(id) ON DELETE SET NULL,
+    website_url TEXT NOT NULL,
+    finding_id TEXT NOT NULL,
+    finding_check TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    wcag_criterion TEXT,
+    status TEXT NOT NULL DEFAULT 'found',  -- found | acknowledged | in_progress | fixed | wont_fix
+    status_changed_at TIMESTAMPTZ DEFAULT NOW(),
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_compliance_log_user ON public.compliance_log(user_id, website_url);
+CREATE INDEX IF NOT EXISTS idx_compliance_log_status ON public.compliance_log(user_id, status);
+
+ALTER TABLE public.compliance_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "compliance_log_user_all" ON public.compliance_log
+    FOR ALL TO authenticated
+    USING (user_id = auth.uid())
+    WITH CHECK (user_id = auth.uid());
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.compliance_log TO authenticated;
+
+COMMENT ON TABLE public.compliance_log IS 'Tracks the lifecycle of accessibility findings (found → acknowledged → fixed).';
+
+-- ============================================
+-- Monitored Sites: Auto-scan scheduling
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS public.monitored_sites (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    website_url TEXT NOT NULL,
+    scan_frequency TEXT NOT NULL DEFAULT 'weekly', -- weekly | daily | monthly
+    last_scan_id UUID REFERENCES public.scan_results(id) ON DELETE SET NULL,
+    last_score INTEGER,
+    previous_score INTEGER,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, website_url)
+);
+
+CREATE INDEX IF NOT EXISTS idx_monitored_sites_user ON public.monitored_sites(user_id, is_active);
+
+ALTER TABLE public.monitored_sites ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "monitored_sites_user_all" ON public.monitored_sites
+    FOR ALL TO authenticated
+    USING (user_id = auth.uid())
+    WITH CHECK (user_id = auth.uid());
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.monitored_sites TO authenticated;
+
+COMMENT ON TABLE public.monitored_sites IS 'Sites the user wants to monitor with periodic re-scans.';
+
+-- ============================================
+-- Compliance Badges: Embeddable badges
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS public.compliance_badges (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    website_url TEXT NOT NULL,
+    badge_token TEXT NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(16), 'hex'),
+    last_score INTEGER,
+    last_scan_date TIMESTAMPTZ,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, website_url)
+);
+
+CREATE INDEX IF NOT EXISTS idx_compliance_badges_token ON public.compliance_badges(badge_token);
+
+ALTER TABLE public.compliance_badges ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "compliance_badges_user_all" ON public.compliance_badges
+    FOR ALL TO authenticated
+    USING (user_id = auth.uid())
+    WITH CHECK (user_id = auth.uid());
+
+-- Allow public read for badge rendering
+CREATE POLICY "compliance_badges_public_read" ON public.compliance_badges
+    FOR SELECT TO anon
+    USING (is_active = true);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.compliance_badges TO authenticated;
+GRANT SELECT ON public.compliance_badges TO anon;
+
+COMMENT ON TABLE public.compliance_badges IS 'Embeddable compliance badges for user websites.';

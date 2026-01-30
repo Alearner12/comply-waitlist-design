@@ -20,7 +20,29 @@ interface Finding {
     wcagPrinciple?: string;
     pageUrl?: string;
     remediation?: string;
+    impact?: string;
     elements?: string[];
+    managerGuidance?: string;
+    developerGuidance?: string;
+}
+
+interface PdfCheckResult {
+    url: string;
+    filename: string;
+    isAccessible: boolean;
+    hasLangTag: boolean;
+    hasMarkInfo: boolean;
+    hasTitle: boolean;
+    error?: string;
+}
+
+interface VendorWarning {
+    vendor: string;
+    category: string;
+    detectedVia: string;
+    warning: string;
+    action: string;
+    vpatTemplateEmail: string;
 }
 
 interface Summary {
@@ -48,6 +70,8 @@ interface ScanResult {
     summary: Summary;
     page_results?: PageResult[];
     pages_scanned?: number;
+    pdf_results?: PdfCheckResult[];
+    vendor_warnings?: VendorWarning[];
     email?: string;
     scanned_at: string;
 }
@@ -99,7 +123,7 @@ function getScoreColor(score: number): string {
 
 // Generate HTML email report
 function generateReportEmail(scan: ScanResult): string {
-    const { website_url, findings, summary, page_results, pages_scanned, scanned_at } = scan;
+    const { website_url, findings, summary, page_results, pages_scanned, pdf_results, vendor_warnings, scanned_at } = scan;
     const scanDate = new Date(scanned_at).toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
@@ -108,7 +132,7 @@ function generateReportEmail(scan: ScanResult): string {
 
     const avgScore = summary.accessibilityScore || 0;
 
-    // Generate findings HTML with WCAG info
+    // Generate findings HTML with WCAG info and role-specific guidance
     const generateFindingHtml = (f: Finding) => `
         <tr>
             <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top;">
@@ -125,9 +149,22 @@ function generateReportEmail(scan: ScanResult): string {
             <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
                 <strong style="color: #1f2937;">${f.check}</strong>
                 <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 14px;">${f.message}</p>
+                ${f.impact ? `<p style="margin: 4px 0 0 0; color: #b45309; font-size: 13px;"><strong>Patient impact:</strong> ${f.impact}</p>` : ""}
                 ${f.details ? `<p style="margin: 4px 0 0 0; color: #9ca3af; font-size: 13px;">${f.details}</p>` : ""}
                 ${f.wcagName ? `<p style="margin: 4px 0 0 0; color: #6366f1; font-size: 12px;">WCAG: ${f.wcagName}</p>` : ""}
-                ${f.remediation ? `<p style="margin: 8px 0 0 0; padding: 8px; background: #eff6ff; border-radius: 4px; color: #1e40af; font-size: 13px;"><strong>How to fix:</strong> ${f.remediation}</p>` : ""}
+                ${f.managerGuidance ? `
+                <div style="margin: 8px 0 0 0; padding: 10px; background: #fef3c7; border-radius: 4px; border-left: 3px solid #d97706;">
+                    <p style="margin: 0; color: #92400e; font-size: 13px; font-weight: 600;">For Practice Managers:</p>
+                    <p style="margin: 4px 0 0 0; color: #78350f; font-size: 13px;">${f.managerGuidance}</p>
+                </div>
+                ` : ""}
+                ${f.developerGuidance ? `
+                <div style="margin: 8px 0 0 0; padding: 10px; background: #eff6ff; border-radius: 4px; border-left: 3px solid #2563eb;">
+                    <p style="margin: 0; color: #1e40af; font-size: 13px; font-weight: 600;">For Developers:</p>
+                    <p style="margin: 4px 0 0 0; color: #1e3a5f; font-size: 13px;">${f.developerGuidance}</p>
+                </div>
+                ` : ""}
+                ${f.remediation && !f.managerGuidance ? `<p style="margin: 8px 0 0 0; padding: 8px; background: #eff6ff; border-radius: 4px; color: #1e40af; font-size: 13px;"><strong>How to fix:</strong> ${f.remediation}</p>` : ""}
             </td>
         </tr>
     `;
@@ -245,6 +282,76 @@ function generateReportEmail(scan: ScanResult): string {
     </div>
     ` : ""}
 
+    <!-- PDF Accessibility Results -->
+    ${pdf_results && pdf_results.length > 0 ? `
+    <div style="margin-top: 32px; padding: 20px; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">
+        <h3 style="color: #991b1b; font-size: 16px; margin: 0 0 12px 0;">PDF Document Accessibility</h3>
+        <p style="color: #7f1d1d; font-size: 14px; margin: 0 0 12px 0;">
+            We found <strong>${pdf_results.length} PDF document${pdf_results.length > 1 ? "s" : ""}</strong> on your website.
+            ${pdf_results.filter(p => !p.isAccessible).length > 0
+                ? `<strong>${pdf_results.filter(p => !p.isAccessible).length}</strong> cannot be read by screen readers.`
+                : "All appear to have basic accessibility tags."}
+        </p>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead>
+                <tr style="background: #fee2e2;">
+                    <th style="padding: 8px; text-align: left; color: #991b1b;">Document</th>
+                    <th style="padding: 8px; text-align: center; color: #991b1b;">Language Tag</th>
+                    <th style="padding: 8px; text-align: center; color: #991b1b;">Tagged PDF</th>
+                    <th style="padding: 8px; text-align: center; color: #991b1b;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${pdf_results.map(pdf => `
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #fecaca; word-break: break-all;">${pdf.filename}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #fecaca; text-align: center;">${pdf.error ? "?" : pdf.hasLangTag ? "Yes" : "No"}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #fecaca; text-align: center;">${pdf.error ? "?" : pdf.hasMarkInfo ? "Yes" : "No"}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #fecaca; text-align: center;">
+                        <span style="color: ${pdf.error ? "#6b7280" : pdf.isAccessible ? "#059669" : "#dc2626"}; font-weight: 600;">
+                            ${pdf.error ? "Could not check" : pdf.isAccessible ? "Accessible" : "Not Accessible"}
+                        </span>
+                    </td>
+                </tr>
+                `).join("")}
+            </tbody>
+        </table>
+        <div style="margin-top: 12px; padding: 10px; background: #fef3c7; border-radius: 4px;">
+            <p style="margin: 0; color: #92400e; font-size: 13px;">
+                <strong>Why this matters:</strong> Patient intake forms, consent documents, and educational materials must be accessible to blind patients.
+                Inaccessible PDFs are a common Section 504 violation. Consider converting critical forms to accessible HTML web forms.
+            </p>
+        </div>
+    </div>
+    ` : ""}
+
+    <!-- Third-Party Vendor Warnings -->
+    ${vendor_warnings && vendor_warnings.length > 0 ? `
+    <div style="margin-top: 32px; padding: 20px; background: #fffbeb; border-radius: 8px; border: 1px solid #fde68a;">
+        <h3 style="color: #92400e; font-size: 16px; margin: 0 0 8px 0;">Third-Party Vendor Risk Assessment</h3>
+        <p style="color: #78350f; font-size: 14px; margin: 0 0 16px 0;">
+            Under <strong>Section 504</strong>, your practice is legally responsible for the accessibility of third-party tools used by patients.
+            We detected <strong>${vendor_warnings.length} third-party service${vendor_warnings.length > 1 ? "s" : ""}</strong> on your website.
+        </p>
+        ${vendor_warnings.map(vw => `
+        <div style="margin-bottom: 16px; padding: 12px; background: white; border-radius: 6px; border: 1px solid #fde68a;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; color: #92400e; background: #fde68a;">
+                    ${vw.category}
+                </span>
+                <strong style="color: #1f2937;">${vw.vendor}</strong>
+            </div>
+            <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px;">${vw.warning}</p>
+            <p style="margin: 0 0 8px 0; color: #1e40af; font-size: 13px;"><strong>Action needed:</strong> ${vw.action}</p>
+            <details style="margin-top: 8px;">
+                <summary style="cursor: pointer; color: #7c3aed; font-size: 13px; font-weight: 500;">Click to view VPAT request email template</summary>
+                <pre style="margin: 8px 0 0 0; padding: 12px; background: #f9fafb; border-radius: 4px; font-size: 12px; color: #374151; white-space: pre-wrap; font-family: monospace;">${vw.vpatTemplateEmail}</pre>
+            </details>
+        </div>
+        `).join("")}
+    </div>
+    ` : ""}
+
     <!-- WCAG Reference -->
     <div style="margin-top: 32px; padding: 20px; background: #f5f3ff; border-radius: 8px;">
         <h3 style="color: #5b21b6; font-size: 16px; margin: 0 0 12px 0;">Understanding WCAG Levels</h3>
@@ -264,6 +371,17 @@ function generateReportEmail(scan: ScanResult): string {
         </p>
         <p style="color: #6b7280; font-size: 14px; margin-top: 12px;">
             <strong>Need help fixing these issues?</strong> Reply to this email and we'll be happy to assist.
+        </p>
+    </div>
+
+    <!-- Important Disclaimer -->
+    <div style="margin-top: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+        <p style="margin: 0; color: #6b7280; font-size: 12px;">
+            <strong>Important:</strong> Automated tools can detect only 30-40% of WCAG accessibility issues.
+            This scan covers common machine-detectable problems but does not constitute a full accessibility audit.
+            Manual testing with assistive technologies (screen readers, keyboard-only navigation) and testing with
+            users with disabilities is necessary for full WCAG 2.1 AA compliance. This report should not be
+            considered legal advice.
         </p>
     </div>
 
@@ -451,6 +569,8 @@ serve(async (req) => {
                 summary: scan.summary,
                 websiteUrl: scan.website_url,
                 pageResults: scan.page_results,
+                pdfResults: scan.pdf_results,
+                vendorWarnings: scan.vendor_warnings,
                 reportSent: emailSent,
             }),
             { headers: { ...headers, "Content-Type": "application/json" } }

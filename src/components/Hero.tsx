@@ -2,6 +2,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import BlurText from "./BlurText";
 import ShinyText from "./ShinyText";
+import AccessibilityStatement from "./AccessibilityStatement";
+import { useAuth } from "@/lib/auth";
 import {
   startScan,
   unlockReport,
@@ -9,6 +11,8 @@ import {
   type UnlockResult,
   type Finding,
   type PageResult,
+  type PdfCheckResult,
+  type VendorWarning,
   getSeverityBgColor,
   getWcagLevelClass,
   getScoreColor,
@@ -24,12 +28,15 @@ type ScannerState =
   | "REPORT_SENT";
 
 const Hero = () => {
+  const { user } = useAuth();
   const [state, setState] = useState<ScannerState>("IDLE");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [email, setEmail] = useState("");
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [fullReport, setFullReport] = useState<UnlockResult | null>(null);
   const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
+  const [showStatementGenerator, setShowStatementGenerator] = useState(false);
+  const [expandedVendor, setExpandedVendor] = useState<string | null>(null);
 
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +58,7 @@ const Hero = () => {
     trackEvent("scan_started", { url: websiteUrl });
 
     try {
-      const result = await startScan(websiteUrl);
+      const result = await startScan(websiteUrl, user?.id);
 
       if (!result.success) {
         toast.error(result.error || "Failed to scan website");
@@ -126,6 +133,8 @@ const Hero = () => {
     setScanResult(null);
     setFullReport(null);
     setExpandedPages(new Set());
+    setShowStatementGenerator(false);
+    setExpandedVendor(null);
   };
 
   const togglePage = (pageUrl: string) => {
@@ -390,10 +399,42 @@ const Hero = () => {
                     </span>
                   )}
                 </div>
+
+                {/* PDF Warnings (teaser) */}
+                {scanResult.pdfResults && scanResult.pdfResults.filter(p => !p.isAccessible && !p.error).length > 0 && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-left">
+                    <p className="text-sm font-semibold text-red-800">
+                      {scanResult.pdfResults.filter(p => !p.isAccessible && !p.error).length} PDF form{scanResult.pdfResults.filter(p => !p.isAccessible && !p.error).length > 1 ? "s" : ""} found that blind patients cannot read
+                    </p>
+                    <p className="text-xs text-red-600 mt-1">
+                      Patient intake forms and consent documents must be accessible under Section 504.
+                    </p>
+                  </div>
+                )}
+
+                {/* Vendor Warnings (teaser) */}
+                {scanResult.vendorWarnings && scanResult.vendorWarnings.length > 0 && (
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-left">
+                    <p className="text-sm font-semibold text-amber-800">
+                      {scanResult.vendorWarnings.length} third-party tool{scanResult.vendorWarnings.length > 1 ? "s" : ""} detected
+                    </p>
+                    <p className="text-xs text-amber-700 mt-1">
+                      Your practice is legally liable for the accessibility of: {scanResult.vendorWarnings.map(v => v.vendor).join(", ")}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Email Gate */}
               <div className="p-6 bg-gray-50">
+                {/* Scan Disclaimer */}
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-left">
+                  <p className="text-xs text-amber-800">
+                    <strong>Important:</strong> Automated scans detect ~30-40% of accessibility issues.
+                    Full compliance requires manual testing. This is not legal advice.
+                  </p>
+                </div>
+
                 <p className="text-sm text-gray-600 mb-4">
                   Enter your email to get the full report with WCAG criteria,
                   per-page breakdown, and remediation steps
@@ -483,6 +524,131 @@ const Hero = () => {
                     </div>
                   </div>
                 )
+              )}
+
+              {/* Vendor Warnings Section */}
+              {fullReport.vendorWarnings && fullReport.vendorWarnings.length > 0 && (
+                <div className="p-6 border-t border-border/40">
+                  <h4 className="text-sm font-medium text-amber-700 uppercase tracking-wide mb-4">
+                    Third-Party Vendor Risk
+                  </h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Under Section 504, your practice is legally liable for the accessibility of third-party tools.
+                  </p>
+                  <div className="space-y-3">
+                    {fullReport.vendorWarnings.map((vw: VendorWarning) => (
+                      <div
+                        key={vw.vendor}
+                        className="border border-amber-200 rounded-lg bg-amber-50 overflow-hidden"
+                      >
+                        <button
+                          onClick={() => setExpandedVendor(expandedVendor === vw.vendor ? null : vw.vendor)}
+                          className="w-full flex items-center justify-between p-3 text-left hover:bg-amber-100/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-200 text-amber-800">
+                              {vw.category}
+                            </span>
+                            <span className="font-medium text-gray-900 text-sm">
+                              {vw.vendor}
+                            </span>
+                          </div>
+                          <svg
+                            className={`w-4 h-4 text-amber-600 transition-transform ${expandedVendor === vw.vendor ? "rotate-180" : ""}`}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {expandedVendor === vw.vendor && (
+                          <div className="p-3 border-t border-amber-200 bg-white">
+                            <p className="text-sm text-gray-700 mb-3">{vw.warning}</p>
+                            <p className="text-sm text-blue-700 mb-3">
+                              <strong>Action:</strong> {vw.action}
+                            </p>
+                            <div className="bg-gray-50 rounded p-3">
+                              <p className="text-xs font-medium text-gray-500 mb-2">
+                                Email template to request VPAT:
+                              </p>
+                              <pre className="text-xs text-gray-700 whitespace-pre-wrap font-sans">
+                                {vw.vpatTemplateEmail}
+                              </pre>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(vw.vpatTemplateEmail);
+                                  toast.success("Email template copied!");
+                                }}
+                                className="mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                              >
+                                Copy email template
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* PDF Results Section */}
+              {fullReport.pdfResults && fullReport.pdfResults.length > 0 && (
+                <div className="p-6 border-t border-border/40">
+                  <h4 className="text-sm font-medium text-red-700 uppercase tracking-wide mb-4">
+                    PDF Accessibility ({fullReport.pdfResults.filter((p: PdfCheckResult) => !p.isAccessible && !p.error).length} issues)
+                  </h4>
+                  <div className="space-y-2">
+                    {fullReport.pdfResults.map((pdf: PdfCheckResult) => (
+                      <div
+                        key={pdf.url}
+                        className={`flex items-center justify-between p-2 rounded text-sm ${
+                          pdf.error ? "bg-gray-100" :
+                          pdf.isAccessible ? "bg-green-50" : "bg-red-50"
+                        }`}
+                      >
+                        <span className="truncate flex-1 mr-2 text-gray-700">
+                          {pdf.filename}
+                        </span>
+                        <span className={`shrink-0 font-medium ${
+                          pdf.error ? "text-gray-500" :
+                          pdf.isAccessible ? "text-green-600" : "text-red-600"
+                        }`}>
+                          {pdf.error ? "Unknown" : pdf.isAccessible ? "Accessible" : "Not Accessible"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Generate Accessibility Statement */}
+              {showStatementGenerator ? (
+                <div className="p-6 border-t border-border/40">
+                  <AccessibilityStatement onClose={() => setShowStatementGenerator(false)} />
+                </div>
+              ) : (
+                <div className="p-4 border-t border-border/40 bg-violet-50">
+                  <button
+                    onClick={() => setShowStatementGenerator(true)}
+                    className="w-full text-left flex items-center gap-3 p-3 rounded-lg hover:bg-violet-100 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center shrink-0">
+                      <svg className="w-5 h-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">
+                        Generate Accessibility Statement
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        Create a compliant statement to publish on your website
+                      </p>
+                    </div>
+                  </button>
+                </div>
               )}
 
               {/* Scan Another */}
